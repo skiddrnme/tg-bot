@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL база данных
+  postgres:
+    image: postgres:16-alpine
+    container_name: pr_bot_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password_here
+      POSTGRES_DB: pr_bot
+      # Настройки для production (опционально)
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5432:5432"  # пробрасываем порт на хост (для подключения извне)
+    volumes:
+      # Персистентное хранилище (данные не потеряются при перезапуске)
+      - postgres_data:/var/lib/postgresql/data
+      # Скрипт инициализации (создание таблиц)
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Ваше Go-приложение
+  app:
+    build: .
+    container_name: pr_bot_app
+    ports:
+      - "8080:8080"  # пробрасываем порт на хост
+    environment:
+      # Все переменные окружения
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      PORT: :8080
+      GITHUB_SECRET: ${GITHUB_SECRET}
+      LOG_LEVEL: debug
+      
+      # Подключение к БД (используем имя сервиса как хост)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: secret_password_here
+      DB_NAME: pr_bot
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    # Для разработки - монтируем код для hot-reload
+    volumes:
+      - ./:/app
+      - /app/tmp
+    # Если используете Air для hot-reload
+    command: go run ./cmd/bot/main.go
+
+# Определяем тома для персистентных данных
+volumes:
+  postgres_data:
