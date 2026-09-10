@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/askemblerrr/pr-review-bot/internal/client"
 	"github.com/askemblerrr/pr-review-bot/internal/config"
-	"github.com/askemblerrr/pr-review-bot/internal/delivery/telegram"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 )
@@ -44,11 +44,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	
-
 	botApi.Debug = true
 
-	bot := telegram.NewBot(botApi, logger)
+	bot := client.NewBot(botApi, logger)
+
+	if err := bot.Start(); err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
 
 }
 
