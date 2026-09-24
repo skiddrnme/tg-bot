@@ -1,13 +1,20 @@
-.PHONY: run build test lint
+.PHONY: run build test lint docker-up docker-down
 
 run:
-	air
+	go run ./cmd/bot
 
 build:
-	go build -o bot cmd/bot/main.go
+	go build -o bin/bot ./cmd/bot
 
 test:
 	go test -cover ./...
 
 lint:
-	golangci-lint run
+	golangci-lint run ./...
+
+docker-up:
+	docker compose up --build -d
+	docker compose logs -f app
+
+docker-down:
+	docker compose down

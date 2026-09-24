@@ -1,1 +1,11 @@
 .env 
+.env.*
+!.env.example
+certs/
+*.exe 
+*.out
+/bot
+/bin
+.idea/
+.vscode/
+.DS_STORE

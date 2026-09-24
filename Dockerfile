@@ -1,47 +1,20 @@
-# 1. Базовый образ для СБОРКИ (тяжелый, с компилятором)
 FROM golang:1.22-alpine AS builder
-
-# Устанавливаем необходимые пакеты для сборки
-RUN apk add --no-cache git
-
-# Создаем рабочую директорию в контейнере
-WORKDIR /app
-
-# Копируем файлы зависимостей (для кэширования слоев)
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /src
 COPY go.mod go.sum ./
-
-# Скачиваем зависимости
 RUN go mod download
-
-# Копируем исходный код
 COPY . .
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w -X main.version=${VERSION}" \
+    -o /out/bot ./cmd/bot
 
-# Собираем бинарник (статически, чтобы работал без Go)
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bot ./cmd/bot/main.go
-
-# 2. Финальный образ (легкий, только бинарник)
-FROM alpine:latest
-
-# Устанавливаем CA сертификаты (нужны для HTTPS)
-RUN apk --no-cache add ca-certificates
-
-# Создаем непривилегированного пользователя
-RUN adduser -D -g '' appuser
-
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata && \
+    addgroup -S app && adduser -S app -G app
 WORKDIR /app
-
-# Копируем бинарник из builder-образа
-COPY --from=builder /app/bot .
-COPY --from=builder /app/.env* ./
-
-# Меняем владельца файлов на appuser
-RUN chown -R appuser:appuser /app
-
-# Переключаемся на непривилегированного пользователя
-USER appuser
-
-# Открываем порт
+COPY --from=builder /out/bot /app/bot
+RUN mkdir -p /app/certs && chown -R app:app /app
+USER app
 EXPOSE 8080
-
-# Команда запуска
-CMD ["./bot"]
+ENTRYPOINT ["/app/bot"]

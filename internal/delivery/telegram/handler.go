@@ -1,61 +1,56 @@
 package telegram
 
 import (
-	"log/slog"
+    "context"
+    "errors"
+    "log/slog"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+    "github.com/askemblerrr/pr-review-bot/internal/service"
+    "github.com/askemblerrr/pr-review-bot/internal/types"
 )
+
+type Sender interface {
+    Send(chatID int64, text string) error
+}
 
 type Handler struct {
-	bot    *tgbotapi.BotAPI
-	logger *slog.Logger
+    userSvc *service.UserService
+    sender  Sender
+    logger  *slog.Logger
 }
 
-const (
-	commandStart = "start"
-)
-
-func NewHandler(bot *tgbotapi.BotAPI, logger *slog.Logger) *Handler {
-	return &Handler{
-		bot:    bot,
-		logger: logger,
-	}
+func NewHandler(userSvc *service.UserService, sender Sender, logger *slog.Logger) *Handler {
+    return &Handler{userSvc: userSvc, sender: sender, logger: logger}
 }
 
-func (h *Handler) HandleUpdates(updates tgbotapi.UpdatesChannel) {
-	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
-
-		if update.Message.IsCommand() {
-			h.HandleCommand(update.Message)
-			continue
-		}
-
-		h.HandleMessage(update.Message)
-	}
-
+func (h *Handler) Handle(ctx context.Context, msg *types.Message) {
+    h.logger.Info("incoming", "user_id", msg.UserID, "cmd", msg.Command)
+    h.route(ctx, msg)
 }
 
-func (h *Handler) HandleMessage(message *tgbotapi.Message) error {
-	h.logger.Info("[%s] %s", message.From.UserName, message.Text)
-
-	msg := tgbotapi.NewMessage(message.Chat.ID, message.Text)
-	_, err := h.bot.Send(msg)
-	return err
+func (h *Handler) handleStart(ctx context.Context, msg *types.Message) {
+    h.reply(ctx, msg.ChatID, "Привет! Отправь /set_github <твой_github_login>")
 }
 
-func (h *Handler) HandleCommand(message *tgbotapi.Message) error {
-	msg := tgbotapi.NewMessage(message.Chat.ID, "Я не знаю такой команды")
+func (h *Handler) handleSetGitHub(ctx context.Context, msg *types.Message) {
+    if len(msg.Args) != 1 {
+        h.reply(ctx, msg.ChatID, "Использование: /set_github <github_login>")
+        return
+    }
+    err := h.userSvc.SetGitHubLogin(ctx, msg.UserID, msg.Args[0])
+    switch {
+    case err == nil:
+        h.reply(ctx, msg.ChatID, "✅ GitHub-логин сохранён")
+    case errors.Is(err, service.ErrInvalidLogin), errors.Is(err, service.ErrEmptyLogin):
+        h.reply(ctx, msg.ChatID, "❌ Неверный формат GitHub-логина")
+    default:
+        h.logger.Error("set github login failed", "err", err)
+        h.reply(ctx, msg.ChatID, "❌ Внутренняя ошибка")
+    }
+}
 
-	switch message.Command() {
-	case commandStart:
-		msg.Text = "Ты ввел команду /start"
-		_, err := h.bot.Send(msg)
-		return err
-	default:
-		_, err := h.bot.Send(msg)
-		return err
-	}
+func (h *Handler) reply(ctx context.Context, chatID int64, text string) {
+    if err := h.sender.Send(chatID, text); err != nil {
+        h.logger.Error("send reply failed", "err", err, "chat_id", chatID)
+    }
 }

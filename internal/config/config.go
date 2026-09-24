@@ -1,48 +1,46 @@
 package config
 
 import (
-	"errors"
-	"log/slog"
+	"fmt"
 	"os"
-
-	"github.com/askemblerrr/pr-review-bot/internal/validators"
 )
 
 type Config struct {
-	TelegramBotToken string 
+	TelegramBotToken string
+	GithubSecret     string
+	GithubUsername   string
+	Port             string
+	LogLevel         string
+	TLSCertPath      string
+	TLSKeyPath       string
 }
 
-func LoadConfig(logger *slog.Logger) (*Config, error) {
-	if logger == nil {
-		logger = slog.Default()
+func Load() (*Config, error) {
+	cfg := &Config{
+		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
+		GithubSecret:     os.Getenv("GITHUB_SECRET"),
+		GithubUsername:   os.Getenv("GITHUB_USERNAME"),
+		Port:             getEnv("PORT", ":8080"),
+		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		TLSCertPath:      os.Getenv("TLS_CERT_PATH"),
+		TLSKeyPath:       os.Getenv("TLS_KEY_PATH"),
 	}
 
-	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-
-	if botToken == "" {
-		logger.Error("Необходимые переменные окружения отсутствуют", "bot_token", maskToken(botToken))
-		return nil, errors.New("необходимые переменные окружения отсутствуют")
+	if cfg.TelegramBotToken == "" {
+		return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is required")
 	}
-
-	if err := validators.ValidateBotToken(botToken); err != nil {
-		logger.Error("Невалидный токен бота", "err", err)
-		return nil, err
+	if cfg.GithubSecret == "" {
+		return nil, fmt.Errorf("GITHUB_SECRET is required")
 	}
-
-	return &Config{
-		TelegramBotToken: botToken,
-	}, nil
+	if cfg.GithubUsername == "" {
+		return nil, fmt.Errorf("GITHUB_USERNAME is required")
+	}
+	return cfg, nil
 }
 
-
-// maskToken маскирует токен для безопасного логирования
-func maskToken(token string) string {
-	if token == "" {
-		return "***"
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	if len(token) <= 8 {
-		return "***"
-	}
-
-	return token[:4] + "***" + token[len(token)-4:]
+	return fallback
 }
