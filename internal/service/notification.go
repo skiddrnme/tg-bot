@@ -47,3 +47,20 @@ func (s *NotificationService) NotifyPRAssigned(
     s.logger.Info("notification sent", "github_login", githubLogin, "chat_id", chatID)
     return nil
 }
+
+
+func (s *NotificationService) NotifyPR_Review(ctx context.Context, authorLogin, reviewerLogin, prTitle, prURL, reviewState, reviewBody, action string) error{
+    chatID, err := s.userRepo.GetTelegramID(ctx, authorLogin)
+    if err != nil {
+        if errors.Is(err, repository.ErrUserNotFound) {
+            s.logger.Warn("no telegram user for github login", "github_login", authorLogin)
+            return err
+        }
+        return fmt.Errorf("get telegram id: %w", err)
+    }
+    text := "привет"
+    if err := s.notifier.Send(chatID, text); err != nil {
+        return fmt.Errorf("send notification: %w", err)
+    }
+    return nil
+}

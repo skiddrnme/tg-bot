@@ -13,7 +13,9 @@ func (h *Handler) route(ctx context.Context, event string, body []byte) error {
     switch event {
     case eventPullRequest:
         return h.handlePullRequest(ctx, body)
-    case eventPRReview, eventPRReviewComment, eventPRReviewThread:
+    case eventPRReview:
+        return h.handlePullRequestReview(ctx, body)
+    case eventPRReviewComment, eventPRReviewThread:
         h.logger.Info("event ignored (not implemented)", "event", event)
         return nil
     default:
