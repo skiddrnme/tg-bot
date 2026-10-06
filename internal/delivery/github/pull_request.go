@@ -4,6 +4,8 @@ import (
     "context"
     "encoding/json"
     "fmt"
+
+    "github.com/askemblerrr/pr-review-bot/internal/types"
 )
 
 type pullRequestEvent struct {
@@ -34,7 +36,10 @@ func (h *Handler) handlePullRequest(ctx context.Context, body []byte) error {
     if ev.Assignee == nil || ev.Assignee.Login != h.username {
         return nil
     }
-    return h.notifSvc.NotifyPRAssigned(
-        ctx, ev.Assignee.Login, ev.PullRequest.Title, ev.PullRequest.HTMLURL,
-    )
+    assigned := types.PRAssignedEvent{
+        Assignee: ev.Assignee.Login,
+        PRTitle: ev.PullRequest.Title,
+        PRURL: ev.PullRequest.HTMLURL,
+    }
+    return h.notifSvc.NotifyPRAssigned(ctx, assigned)
 }

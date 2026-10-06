@@ -4,37 +4,44 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/askemblerrr/pr-review-bot/internal/types"
 )
 
-type PullRequestReviewEvent struct {
+type pullRequestReviewPayload struct {
 	Action string `json:"action"`
 	Review struct {
 		State   string `json:"state"`
 		Body    string `json:"body"`
 		HTMLURL string `json:"html_url"`
-		User    struct {
-			Login string `json:"login"`
-		} `json:"user"`
+		User    user   `json:"user"`
 	} `json:"review"`
 	PullRequest struct {
 		Title   string `json:"title"`
 		HTMLURL string `json:"html_url"`
-		User    struct {
-			Login string `json:"login"`
-		} `json:"user"`
+		User    user   `json:"user"`
 	} `json:"pull_request"`
 }
 
-func (h *Handler) handlePullRequestReview(ctx context.Context,  body []byte) error{
-	var rev PullRequestReviewEvent
-	if err := json.Unmarshal(body, &rev); err != nil{
+func (h *Handler) handlePullRequestReview(ctx context.Context, body []byte) error {
+	var ev pullRequestReviewPayload
+	if err := json.Unmarshal(body, &ev); err != nil {
 		return fmt.Errorf("unmarshal: %w", err)
 	}
-	if rev.Action != "submitted" && rev.Action != "dismissed" {
+	if ev.Action != "submitted" && ev.Action != "dismissed" {
 		return nil
 	}
-	if rev.PullRequest.User.Login != h.username{
+	if ev.PullRequest.User.Login != h.username {
 		return nil
 	}
-	return h.notifSvc.NotifyPR_Review(ctx, rev.PullRequest.User.Login, rev.Review.User.Login, rev.PullRequest.Title, rev.PullRequest.HTMLURL, rev.Review.State, rev.Review.Body, rev.Action)
+	review := types.PRReviewEvent{
+		AuthorLogin:   ev.PullRequest.User.Login,
+		ReviewerLogin: ev.Review.User.Login,
+		PRTitle:       ev.PullRequest.Title,
+		PRURL:         ev.PullRequest.HTMLURL,
+		ReviewState:   ev.Review.State,
+		ReviewBody:    ev.Review.Body,
+		Action:        ev.Action,
+	}
+	return h.notifSvc.NotifyPRReview(ctx, review)
 }

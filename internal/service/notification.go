@@ -1,66 +1,104 @@
 package service
 
 import (
-    "context"
-    "errors"
-    "fmt"
-    "log/slog"
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
 
-    "github.com/askemblerrr/pr-review-bot/internal/repository"
+	"github.com/askemblerrr/pr-review-bot/internal/repository"
+	"github.com/askemblerrr/pr-review-bot/internal/types"
 )
 
 type Notifier interface {
-    Send(chatID int64, text string) error
+	Send(chatID int64, text string) error
 }
 
 type NotificationService struct {
-    userRepo repository.UserRepository
-    notifier Notifier
-    logger   *slog.Logger
+	userRepo repository.UserRepository
+	notifier Notifier
+	logger   *slog.Logger
 }
 
 func NewNotificationService(
-    userRepo repository.UserRepository,
-    notifier Notifier,
-    logger *slog.Logger,
+	userRepo repository.UserRepository,
+	notifier Notifier,
+	logger *slog.Logger,
 ) *NotificationService {
-    return &NotificationService{userRepo: userRepo, notifier: notifier, logger: logger}
+	return &NotificationService{userRepo: userRepo, notifier: notifier, logger: logger}
 }
 
-func (s *NotificationService) NotifyPRAssigned(
-    ctx context.Context,
-    githubLogin, prTitle, prURL string,
-) error {
-    chatID, err := s.userRepo.GetTelegramID(ctx, githubLogin)
-    if err != nil {
-        if errors.Is(err, repository.ErrUserNotFound) {
-            s.logger.Warn("no telegram user for github login", "github_login", githubLogin)
-            return err
-        }
-        return fmt.Errorf("get telegram id: %w", err)
-    }
+func (s *NotificationService) NotifyPRAssigned(ctx context.Context, ev types.PRAssignedEvent) error {
+	chatID, err := s.userRepo.GetTelegramID(ctx, ev.Assignee)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			s.logger.Warn("no telegram user for github login", "github_login", ev.Assignee)
+			return err
+		}
+		return fmt.Errorf("get telegram id: %w", err)
+	}
 
-    text := fmt.Sprintf("🔔 На вас назначен pull request:\n%s\n%s", prTitle, prURL)
-    if err := s.notifier.Send(chatID, text); err != nil {
-        return fmt.Errorf("send notification: %w", err)
-    }
-    s.logger.Info("notification sent", "github_login", githubLogin, "chat_id", chatID)
-    return nil
+	text := fmt.Sprintf("🔔 На вас назначен pull request:\n%s\n%s", ev.PRTitle, ev.PRURL)
+	if err := s.notifier.Send(chatID, text); err != nil {
+		return fmt.Errorf("send notification: %w", err)
+	}
+	s.logger.Info("notification sent", "github_login", ev.Assignee, "chat_id", chatID)
+	return nil
 }
 
+func (s *NotificationService) NotifyPRReview(ctx context.Context, ev types.PRReviewEvent) error {
+	chatID, err := s.userRepo.GetTelegramID(ctx, ev.AuthorLogin)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			s.logger.Warn("no telegram user for github login", "github_login", ev.AuthorLogin)
+			return err
+		}
+		return fmt.Errorf("get telegram id: %w", err)
+	}
 
-func (s *NotificationService) NotifyPR_Review(ctx context.Context, authorLogin, reviewerLogin, prTitle, prURL, reviewState, reviewBody, action string) error{
-    chatID, err := s.userRepo.GetTelegramID(ctx, authorLogin)
-    if err != nil {
-        if errors.Is(err, repository.ErrUserNotFound) {
-            s.logger.Warn("no telegram user for github login", "github_login", authorLogin)
-            return err
-        }
-        return fmt.Errorf("get telegram id: %w", err)
-    }
-    text := "привет"
-    if err := s.notifier.Send(chatID, text); err != nil {
-        return fmt.Errorf("send notification: %w", err)
-    }
-    return nil
+	var header string
+	switch ev.Action {
+	case "submitted":
+		header = "💬 Новое ревью на ваш PR"
+	case "dismissed":
+		header = "⚠️ Ревью снято с вашего PR"
+	}
+
+	var status string
+	switch ev.ReviewState {
+	case "approved":
+		status = "✅ Одобрено"
+	case "changes_requested":
+		status = "❌ Запрошены изменения"
+	case "commented":
+		status = "💬 Комментарий"
+	default:
+		status = ev.ReviewState
+	}
+
+	var body string
+    runes := []rune(ev.ReviewBody)
+	switch {
+	case ev.ReviewBody == "":
+		body = "Без комментария"
+	case len(ev.ReviewBody) > 1000:
+		body = string(runes[:1000]) + "... (обрезано)"
+	default:
+		body = ev.ReviewBody
+	}
+
+	text := fmt.Sprintf("%s: %s\nОт: @%s\nСтатус: %s\nКомментарий: %s\n%s",
+		header,
+		ev.PRTitle,
+		ev.ReviewerLogin,
+		status,
+		body,
+		ev.PRURL,
+	)
+
+	if err := s.notifier.Send(chatID, text); err != nil {
+		return fmt.Errorf("send notification: %w", err)
+	}
+	s.logger.Info("notification sent", "github_login", ev.AuthorLogin, "chat_id", chatID)
+	return nil
 }
