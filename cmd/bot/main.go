@@ -106,3 +106,6 @@ func run(ctx context.Context) error {
     log.Info("shutdown complete")
     return nil
 }
+
+
+// комментарий
