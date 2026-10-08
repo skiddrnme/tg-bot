@@ -77,7 +77,7 @@ func (s *NotificationService) NotifyPRReview(ctx context.Context, ev types.PRRev
 	}
 
 	var body string
-    runes := []rune(ev.ReviewBody)
+	runes := []rune(ev.ReviewBody)
 	switch {
 	case ev.ReviewBody == "":
 		body = "Без комментария"
@@ -101,4 +101,40 @@ func (s *NotificationService) NotifyPRReview(ctx context.Context, ev types.PRRev
 	}
 	s.logger.Info("notification sent", "github_login", ev.AuthorLogin, "chat_id", chatID)
 	return nil
+}
+
+func (s *NotificationService) NotifyPRReviewComment(ctx context.Context, ev types.PRReviewCommentEvent) error {
+	chatID, err := s.userRepo.GetTelegramID(ctx, ev.AuthorLogin)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			s.logger.Warn("no telegram user for github login", "github_login", ev.AuthorLogin)
+			return err
+		}
+		return fmt.Errorf("get telegram id: %w", err)
+	}
+
+	var body string
+	runes := []rune(ev.CommentBody)
+	switch {
+	case ev.CommentBody == "":
+		return nil
+	case len(ev.CommentBody) > 1000:
+		body = string(runes[:1000]) + "... (обрезано)"
+	default:
+		body = ev.CommentBody
+	}
+
+	text := fmt.Sprintf("Новый комментарий к вашему PR: %s\nОт: @%s\nФайл: %s :%d\nКомментарий: %s\n%s",
+		ev.PRTitle,
+		ev.CommenterLogin,
+		ev.FilePath,
+		body,
+		ev.CommentURL,
+	)
+	if err := s.notifier.Send(chatID, text); err != nil {
+		return fmt.Errorf("send notification: %w", err)
+	}
+	s.logger.Info("notification sent", "github_login", ev.AuthorLogin, "chat_id", chatID)
+	return nil
+
 }
