@@ -5,6 +5,9 @@ services:
       args:
         VERSION: ${VERSION:-dev}
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -15,5 +18,30 @@ services:
       LOG_LEVEL:          ${LOG_LEVEL:-info}
       TLS_CERT_PATH:      /app/certs/server.crt
       TLS_KEY_PATH:       /app/certs/server.key
+      DB_HOST:            postgres
+      DB_PORT:            "5432"
+      DB_USERNAME:        ${DB_USERNAME}
+      DB_PASSWORD:        ${DB_PASSWORD}
+      DB_NAME:            ${DB_NAME:-pr_review_bot}
     volumes:
       - ./certs:/app/certs:ro
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB:       ${DB_NAME:-pr_review_bot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # скрипты из этой папки выполняются только при первом старте на пустом томе
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/askemblerrr/pr-review-bot/internal/repository"
@@ -24,9 +25,14 @@ func (r *UserRepository) Save(ctx context.Context, telegramID int64, githubLogin
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	githubLogin = strings.ToLower(githubLogin)
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if owner, ok := r.byGitHub[githubLogin]; ok && owner != telegramID {
+		return repository.ErrLoginTaken
+	}
 	if old, ok := r.byTelegram[telegramID]; ok && old != githubLogin {
 		delete(r.byGitHub, old)
 	}
@@ -56,7 +62,7 @@ func (r *UserRepository) GetTelegramID(ctx context.Context, githubLogin string) 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	id, ok := r.byGitHub[githubLogin]
+	id, ok := r.byGitHub[strings.ToLower(githubLogin)]
 	if !ok {
 		return 0, repository.ErrUserNotFound
 	}

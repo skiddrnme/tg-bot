@@ -18,7 +18,9 @@ import (
     ghdelivery "github.com/askemblerrr/pr-review-bot/internal/delivery/github"
     tgdelivery "github.com/askemblerrr/pr-review-bot/internal/delivery/telegram"
     "github.com/askemblerrr/pr-review-bot/internal/logger"
+    "github.com/askemblerrr/pr-review-bot/internal/repository"
     "github.com/askemblerrr/pr-review-bot/internal/repository/memory"
+    "github.com/askemblerrr/pr-review-bot/internal/repository/postgres"
     "github.com/askemblerrr/pr-review-bot/internal/service"
 )
 
@@ -47,7 +49,21 @@ func run(ctx context.Context) error {
     log.Info("telegram bot authorized", "username", botAPI.Self.UserName)
 
     // Repository
-    userRepo := memory.NewUserRepository()
+    var userRepo repository.UserRepository
+    if cfg.DB.Enabled() {
+        connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+        pgRepo, err := postgres.NewUserRepository(connectCtx, cfg.DB.DSN())
+        cancel()
+        if err != nil {
+            return fmt.Errorf("postgres: %w", err)
+        }
+        defer pgRepo.Close()
+        userRepo = pgRepo
+        log.Info("using postgres storage", "host", cfg.DB.Host, "db", cfg.DB.Name)
+    } else {
+        userRepo = memory.NewUserRepository()
+        log.Warn("DB_HOST is not set, using in-memory storage: data is lost on restart")
+    }
 
     // Clients
     tgClient := telegram.NewBot(botAPI, log)

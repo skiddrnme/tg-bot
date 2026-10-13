@@ -43,6 +43,8 @@ func (h *Handler) handleSetGitHub(ctx context.Context, msg *types.Message) {
         h.reply(ctx, msg.ChatID, "✅ GitHub-логин сохранён")
     case errors.Is(err, service.ErrInvalidLogin), errors.Is(err, service.ErrEmptyLogin):
         h.reply(ctx, msg.ChatID, "❌ Неверный формат GitHub-логина")
+    case errors.Is(err, service.ErrLoginTaken):
+        h.reply(ctx, msg.ChatID, "❌ Этот GitHub-логин уже привязан к другому пользователю")
     default:
         h.logger.Error("set github login failed", "err", err)
         h.reply(ctx, msg.ChatID, "❌ Внутренняя ошибка")

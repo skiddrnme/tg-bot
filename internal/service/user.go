@@ -14,6 +14,8 @@ import (
 var (
     ErrEmptyLogin   = errors.New("github login is empty")
     ErrInvalidLogin = errors.New("invalid github login format")
+    // ErrLoginTaken переэкспортирован, чтобы delivery не зависел от пакета repository.
+    ErrLoginTaken = repository.ErrLoginTaken
 )
 
 var githubLoginRe = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38})$`)
