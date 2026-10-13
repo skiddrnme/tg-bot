@@ -2,6 +2,7 @@ package main
 
 import (
     "context"
+    "crypto/tls"
     "errors"
     "fmt"
     "net/http"
@@ -63,13 +64,7 @@ func run(ctx context.Context) error {
     mux := http.NewServeMux()
     mux.Handle("POST /api/v1/github/webhook", ghHandler)
 
-    srv := &http.Server{
-        Addr:         cfg.Port,
-        Handler:      mux,
-        ReadTimeout:  10 * time.Second,
-        WriteTimeout: 10 * time.Second,
-        IdleTimeout:  60 * time.Second,
-    }
+    srv := newServer(cfg.Port, mux)
 
     errCh := make(chan error, 2)
 
@@ -105,4 +100,21 @@ func run(ctx context.Context) error {
     }
     log.Info("shutdown complete")
     return nil
+}
+
+func newServer(addr string, handler http.Handler) *http.Server {
+    return &http.Server{
+        Addr:              addr,
+        Handler:           handler,
+        TLSConfig:         newTLSConfig(),
+        ReadHeaderTimeout: 5 * time.Second,
+        ReadTimeout:       10 * time.Second,
+        WriteTimeout:      10 * time.Second,
+        IdleTimeout:       60 * time.Second,
+        MaxHeaderBytes:    1 << 16,
+    }
+}
+
+func newTLSConfig() *tls.Config {
+    return &tls.Config{MinVersion: tls.VersionTLS13}
 }

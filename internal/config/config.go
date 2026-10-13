@@ -35,6 +35,12 @@ func Load() (*Config, error) {
 	if cfg.GithubUsername == "" {
 		return nil, fmt.Errorf("GITHUB_USERNAME is required")
 	}
+	if cfg.TLSCertPath == "" {
+		return nil, fmt.Errorf("TLS_CERT_PATH is required")
+	}
+	if cfg.TLSKeyPath == "" {
+		return nil, fmt.Errorf("TLS_KEY_PATH is required")
+	}
 	return cfg, nil
 }
 

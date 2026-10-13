@@ -18,3 +18,6 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+ngrok:
+	ngrok http https://localhost:8080

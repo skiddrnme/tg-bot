@@ -40,8 +40,8 @@ go test ./internal/repository/memory -run TestUserRepositorySaveOverwrites -v
 
 - Конфигурация только через переменные окружения (`internal/config`), `.env` сам приложением не читается — его подхватывает `docker compose`. При `make run` переменные нужно экспортировать вручную.
 - Обязательные: `TELEGRAM_BOT_TOKEN`, `GITHUB_SECRET`, `GITHUB_USERNAME`. Необязательные: `PORT` (в формате адреса, `:8080`), `LOG_LEVEL`.
-- HTTP-сервер поднимается только по TLS (`ListenAndServeTLS`), поэтому `TLS_CERT_PATH` / `TLS_KEY_PATH` фактически обязательны, хотя `config.Load` их не валидирует. Сертификаты лежат в `certs/` (в `.gitignore`), в контейнер монтируются как `/app/certs`.
-- Вебхук GitHub: `POST /api/v1/github/webhook`, наружу пробрасывается через `ngrok http 8080`.
+- HTTP-сервер поднимается только по TLS (`ListenAndServeTLS`), поэтому `TLS_CERT_PATH` / `TLS_KEY_PATH` обязательны (проверяются в `config.Load`). Сертификаты лежат в `certs/` (в `.gitignore`), в контейнер монтируются как `/app/certs`.
+- Вебхук GitHub: `POST /api/v1/github/webhook`, наружу пробрасывается через `ngrok http https://localhost:8080` (сервер принимает только TLS 1.3, см. `newTLSConfig` в `cmd/bot/main.go`).
 
 ## Архитектура
 
