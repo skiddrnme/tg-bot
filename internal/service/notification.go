@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/askemblerrr/pr-review-bot/internal/repository"
 	"github.com/askemblerrr/pr-review-bot/internal/types"
@@ -81,7 +82,7 @@ func (s *NotificationService) NotifyPRReview(ctx context.Context, ev types.PRRev
 	switch {
 	case ev.ReviewBody == "":
 		body = "Без комментария"
-	case len(ev.ReviewBody) > 1000:
+	case len(runes) > 1000:
 		body = string(runes[:1000]) + "... (обрезано)"
 	default:
 		body = ev.ReviewBody
@@ -118,7 +119,7 @@ func (s *NotificationService) NotifyPRReviewComment(ctx context.Context, ev type
 	switch {
 	case ev.CommentBody == "":
 		return nil
-	case len(ev.CommentBody) > 1000:
+	case len(runes) > 1000:
 		body = string(runes[:1000]) + "... (обрезано)"
 	default:
 		body = ev.CommentBody
@@ -128,6 +129,7 @@ func (s *NotificationService) NotifyPRReviewComment(ctx context.Context, ev type
 		ev.PRTitle,
 		ev.CommenterLogin,
 		ev.FilePath,
+		ev.Line,
 		body,
 		ev.CommentURL,
 	)
@@ -137,4 +139,51 @@ func (s *NotificationService) NotifyPRReviewComment(ctx context.Context, ev type
 	s.logger.Info("notification sent", "github_login", ev.AuthorLogin, "chat_id", chatID)
 	return nil
 
+}
+
+func (s *NotificationService) NotifyPRReviewThread(ctx context.Context, ev types.PRReviewThreadEvent) error {
+	chatID, err := s.userRepo.GetTelegramID(ctx, ev.AssigneeLogin)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			s.logger.Warn("no telegram user for github login", "github_login", ev.AssigneeLogin)
+			return err
+		}
+		return fmt.Errorf("get telegram id: %w", err)
+	}
+
+	var header string
+	switch ev.Action {
+	case "resolved":
+		header = "🔒 Обсуждение закрыто в PR"
+	case "unresolved":
+		header = "🔓 Обсуждение возобновлено в PR"
+	default:
+		header = "💬 Изменение в обсуждении PR"
+	}
+
+	link := ev.ThreadURL
+	if link == "" {
+		link = ev.PRURL
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s «%s»\n", header, ev.PRTitle)
+	fmt.Fprintf(&sb, "От: @%s\n", ev.ActorLogin)
+
+	if ev.FilePath != "" {
+		fmt.Fprintf(&sb, "Файл: %s\n", ev.FilePath)
+	}
+	if link != "" {
+		fmt.Fprintf(&sb, "Ссылка: %s\n", link)
+	}
+
+	fmt.Fprintf(&sb, "Статус: %s", ev.Action)
+
+	text := sb.String()
+
+	if err := s.notifier.Send(chatID, text); err != nil {
+		return fmt.Errorf("send notification: %w", err)
+	}
+	s.logger.Info("notification sent", "github_login", ev.AssigneeLogin, "chat_id", chatID)
+	return nil
 }

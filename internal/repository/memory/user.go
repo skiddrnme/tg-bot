@@ -24,8 +24,8 @@ func (r *UserRepository) Save(ctx context.Context, telegramID int64, githubLogin
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	if old, ok := r.byTelegram[telegramID]; ok && old != githubLogin {
 		delete(r.byGitHub, old)

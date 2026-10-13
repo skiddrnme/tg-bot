@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 certs/
+docs/
 *.exe 
 *.out
 /bot
@@ -9,3 +10,4 @@ certs/
 .idea/
 .vscode/
 .DS_STORE
+.CLAUDE.md

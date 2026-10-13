@@ -26,3 +26,13 @@ type PRReviewCommentEvent struct {
 	CommentBody    string
 	CommentURL     string
 }
+
+type PRReviewThreadEvent struct {
+	AssigneeLogin string // кого уведомляем (совпал с pull_request.assignees)
+	ActorLogin    string // sender.login — кто закрыл/переоткрыл ветку
+	PRTitle       string // pull_request.title
+	PRURL         string // pull_request.html_url
+	Action        string // resolved / unresolved
+	FilePath      string // thread.comments[0].path (может быть пустым)
+	ThreadURL     string // thread.comments[0].html_url (может быть пустым)
+}

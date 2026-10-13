@@ -13,8 +13,6 @@ type mockUserRepo struct {
 
 	// Что записывать (для проверки вызовов)
 	getTelegramIDCalls []string
-
-
 }
 
 type MockNotifierService struct{
