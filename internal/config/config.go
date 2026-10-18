@@ -56,7 +56,7 @@ func Load() (*Config, error) {
 			Port:     getEnv("DB_PORT", "5432"),
 			Username: os.Getenv("DB_USERNAME"),
 			Password: os.Getenv("DB_PASSWORD"),
-			Name:     getEnv("DB_NAME", "pr_review_bot"),
+			Name:     getEnv("DB_NAME", "tg-bot"),
 		},
 	}
 

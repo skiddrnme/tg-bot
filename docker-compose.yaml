@@ -22,7 +22,7 @@ services:
       DB_PORT:            "5432"
       DB_USERNAME:        ${DB_USERNAME}
       DB_PASSWORD:        ${DB_PASSWORD}
-      DB_NAME:            ${DB_NAME:-pr_review_bot}
+      DB_NAME:            ${DB_NAME:-tg-bot}
     volumes:
       - ./certs:/app/certs:ro
 
@@ -32,7 +32,7 @@ services:
     environment:
       POSTGRES_USER:     ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB:       ${DB_NAME:-pr_review_bot}
+      POSTGRES_DB:       ${DB_NAME:-tg-bot}
     volumes:
       - pgdata:/var/lib/postgresql/data
       # скрипты из этой папки выполняются только при первом старте на пустом томе
