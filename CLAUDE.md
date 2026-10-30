@@ -64,7 +64,8 @@ go test ./internal/repository/memory -run TestUserRepositorySaveOverwrites -v
 
 ## Текущее состояние (проверено `go vet` / `go test`)
 
-- Тесты сервисов — заготовки: `user_test.go` в пакете `service`, а `mocks_test.go` — в `service_test`, так что моки оттуда не видны; `mockUserRepo.GetGitHubLogin` принимает `string` вместо `int64` и не удовлетворяет `repository.UserRepository`. В `mocks_test.go` начат переход на `testify/mock`.
+- Покрытие unit-тестами — ~65% по всему проекту (`go test -coverpkg=./... -coverprofile=cover.out ./...` → `go tool cover -func=cover.out`). Тесты во внешних пакетах `*_test`, табличные; моки на `testify/mock` (`service/mocks_test.go`, `delivery/github/handler_test.go`), Telegram-хендлер тестируется на настоящем сервисе + memory-репозитории с `fakeSender`. Без тестов намеренно: `cmd/bot`, `repository/postgres`, сетевая часть `client/telegram`.
+- `delivery/github.Handler` зависит от интерфейса `github.NotificationService`, а не от конкретного сервиса.
 - `internal/validators` нигде не используется; `pkg/` пуст.
-- Правила фильтрации расходятся: `pull_request_review_thread` фильтруется по `assignees` (как в ТЗ, без учёта регистра), ревью и комментарии — по автору PR через `==`.
+- Правила фильтрации расходятся: `pull_request` (assignee) и `pull_request_review_thread` (`assignees`, как в ТЗ) сравнивают логин без учёта регистра, ревью и комментарии — по автору PR через `==`.
 - У `repository/postgres` нет постоянных тестов (проверялся вручную на контейнере).

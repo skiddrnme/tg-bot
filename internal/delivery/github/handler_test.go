@@ -123,7 +123,31 @@ func TestPullRequest_Filtering(t *testing.T) {
 		body string                 // JSON-payload события pull_request
 		want *types.PRAssignedEvent // с чем ожидается вызов NotifyPRAssigned; nil — вызова быть не должно
 	}{
-		// TODO(human): сценарии фильтрации
+		{
+			name: "назначили меня",
+			body: `{"action":"assigned","assignee":{"login":"octocat"},"pull_request":{"title":"Fix","html_url":"https://x"}}`,
+			want: &types.PRAssignedEvent{Assignee: "octocat", PRTitle: "Fix", PRURL: "https://x"},
+		},
+		{
+			name: "PR просто открыли",
+			body:  `{"action":"opened","assignee":{"login":"octocat"},"pull_request":{"title":"Fix","html_url":"https://x"}}`,
+			want: nil,
+		},
+		{
+			name: "назначили другого",
+			body: `{"action":"assigned","assignee":{"login":"alice"},"pull_request":{"title":"Fix","html_url":"https://x"}}`,
+			want: nil,
+		},
+		{
+			name: "поля assignee нет вовсе",
+			body: `{"action":"assigned","pull_request":{"title":"Fix","html_url":"https://x"}}`,
+			want: nil,
+		},
+		{
+			name:  "мой логин большими буквами",
+			body: `{"action":"assigned","assignee":{"login":"OctoCat"},"pull_request":{"title":"Fix","html_url":"https://x"}}`,
+			want: &types.PRAssignedEvent{Assignee: "OctoCat", PRTitle: "Fix", PRURL: "https://x"},
+		},
 	}
 
 	for _, tt := range tests {
